@@ -6,7 +6,7 @@ require("dotenv").config();
 
 
 // M2_VENIA_BROWSER_PERSISTENCE__signin_token
-// Value: Your token
+// Value: {"value":"\"{YOUR_TOKEN}\"","timeStored":1731737384709}
 
 (async () => {
   // Đọc dữ liệu từ file Excel
