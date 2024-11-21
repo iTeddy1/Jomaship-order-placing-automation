@@ -68,8 +68,6 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
   }
 };
 
-
-
 (async () => {
   // Đọc dữ liệu từ file Excel
   const workbook = xlsx.readFile("OrderList.xlsx");
@@ -93,13 +91,18 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
   // 2. Thiết lập giá trị trong localStorage
   const tokenKey = "M2_VENIA_BROWSER_PERSISTENCE__signin_token";
   const tokenValue = JSON.stringify({
-    value: "\"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w\"",
+    value:
+      '"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w"',
     timeStored: 1731737384709,
   });
 
-  await page.evaluate((key, value) => {
-    localStorage.setItem(key, value);
-  }, tokenKey, tokenValue);
+  await page.evaluate(
+    (key, value) => {
+      localStorage.setItem(key, value);
+    },
+    tokenKey,
+    tokenValue,
+  );
 
   console.log("Token set in localStorage successfully.");
 
@@ -119,7 +122,7 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
 
     // 3. View product details
     await page.waitForSelector(".productItem", { timeout: 10000 }); // Wait for product links to be available
-        const firstProduct = await page.$(".productItem"); // Get the first product link
+    const firstProduct = await page.$(".productItem"); // Get the first product link
     const productHref = await page.evaluate((el) => el.querySelector("a")?.getAttribute("href"), firstProduct);
     if (firstProduct) {
       await firstProduct.click(); // Click on the first product to go to the product detail page
@@ -133,10 +136,10 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
 
     console.log(`Product ${SKU} added to cart.`);
 
-    await page.waitForSelector(".cart-item")
+    await page.waitForSelector(".cart-item");
+    
     // 6. Adjust quantity in cart sidebar
     await adjustQuantityByHref(page, productHref, Quantity);
-
 
     // Quay lại trang chính
     await page.goto("https://www.jomashop.com", { waitUntil: "networkidle2" });
@@ -148,29 +151,3 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
   // Đóng trình duyệt
   await browser.close();
 })();
-
-//! QUÁ TRÌNH ĐĂNG NHẬP BỊ CHẶN BỞI CAPTCHA
-// await page.click(".rhs-account .rhs-text");
-// await page.waitForSelector("#email_address"); // Đợi input email xuất hiện
-// await page.type("#email_address", process.env.USER_NAME);
-
-// // Đợi người dùng nhập CAPTCHA và mật khẩu nếu cần
-// console.log("Vui lòng giải CAPTCHA và hoàn tất đăng nhập.");
-// await new Promise((resolve) => {
-//   process.stdin.once("data", () => resolve());
-// });
-
-// await page.click('.actions-toolbar .btn.primary[type="submit"]'); // Nhấn "Continue"
-
-// // Nhập mật khẩu và nhấn "Login"
-// await page.waitForSelector("#password"); // Đợi input mật khẩu xuất hiện
-// await page.type("#password", process.env.PASS_WORD); // Nhập mật khẩu
-// await page.click('.actions-toolbar .btn.primary[type="submit"]'); // Nhấn nút "Login"
-
-// // Đợi người dùng nhập CAPTCHA và mật khẩu nếu cần
-// console.log("Vui lòng giải CAPTCHA và hoàn tất đăng nhập.");
-// await new Promise((resolve) => {
-//   process.stdin.once("data", () => resolve());
-// });
-// await page.waitForNavigation({ waitUntil: "networkidle2" });
-// console.log("Đăng nhập thành công.");
