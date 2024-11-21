@@ -4,9 +4,71 @@ const fs = require("fs");
 
 require("dotenv").config();
 
-
 // M2_VENIA_BROWSER_PERSISTENCE__signin_token
-// Value: {"value":"\"{YOUR_TOKEN}\"","timeStored":1731737384709}
+// Value: {"value":"\"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w\"","timeStored":1731737384709}
+
+const adjustQuantityByHref = async (page, href, desiredQuantity) => {
+  try {
+    // Lấy danh sách sản phẩm trong giỏ hàng, đảm bảo đây là một thao tác đồng bộ
+    const cartItems = await page.evaluate(() => {
+      // Trả về danh sách sản phẩm từ DOM
+      return Array.from(document.querySelectorAll(".cart-item")).map((item) => {
+        const productLink = item.querySelector(".cart-item-image a")?.getAttribute("href");
+        const quantityInputSelector = item.querySelector(".quantity-input") ? ".quantity-input" : null;
+        const incrementButtonSelector = item.querySelector(".increment-btn") ? ".increment-btn" : null;
+
+        return {
+          href: productLink,
+          quantityInputSelector: quantityInputSelector,
+          incrementButtonSelector: incrementButtonSelector,
+        };
+      });
+    });
+
+    // Kiểm tra xem `cartItems` có hợp lệ không
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      throw new Error("Cart items not found or invalid structure.");
+    }
+
+    // Tìm sản phẩm theo href
+    const cartItem = cartItems.find((item) => item.href === href);
+
+    if (!cartItem) {
+      throw new Error(`Product with href ${href} not found in the cart.`);
+    }
+
+    console.log(`Found product in cart: ${href}`);
+
+    // Kiểm tra selector tồn tại
+    if (!cartItem.quantityInputSelector || !cartItem.incrementButtonSelector) {
+      throw new Error(`Selectors for quantity or increment button not found for product ${href}`);
+    }
+
+    // Lấy số lượng hiện tại
+    let currentQuantity = await page.evaluate((selector) => {
+      const input = document.querySelector(selector);
+      return input ? parseInt(input.value) : 0;
+    }, cartItem.quantityInputSelector);
+
+    if (isNaN(currentQuantity)) {
+      throw new Error(`Unable to retrieve current quantity for product ${href}`);
+    }
+
+    console.log(`Current quantity for product ${href}: ${currentQuantity}, Desired quantity: ${desiredQuantity}`);
+
+    // Điều chỉnh số lượng
+    while (currentQuantity < desiredQuantity) {
+      await page.click(cartItem.incrementButtonSelector);
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // Đợi nút cập nhật số lượng
+      currentQuantity++;
+      console.log(`Increased quantity for product ${href} to ${currentQuantity}`);
+    }
+  } catch (error) {
+    console.error(`Error adjusting quantity for product ${href}:`, error.message);
+  }
+};
+
+
 
 (async () => {
   // Đọc dữ liệu từ file Excel
@@ -16,34 +78,39 @@ require("dotenv").config();
 
   const browser = await puppeteer
     .launch({
-      headless: false,
+      headless: true,
     })
     .catch((error) => {
       console.error("Error launching browser:", error);
     });
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 1900, height: 1500 });
+  await page.setViewport({ width: 3000, height: 1500 });
 
   // 1. Login to Jomashop
   await page.goto("https://www.jomashop.com", { waitUntil: "networkidle2" });
 
-  console.log("Please set the token manually in the browser's localStorage and then reload the page.");
-  await page.evaluate(() => {
-    // This is where the page will pause and you can manually set the token
-    alert("Manually set the token in localStorage and reload the page.");
+  // 2. Thiết lập giá trị trong localStorage
+  const tokenKey = "M2_VENIA_BROWSER_PERSISTENCE__signin_token";
+  const tokenValue = JSON.stringify({
+    value: "\"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w\"",
+    timeStored: 1731737384709,
   });
 
-  // 2. Xử lý popup nếu xuất hiện
-  await handlePopup(page);
+  await page.evaluate((key, value) => {
+    localStorage.setItem(key, value);
+  }, tokenKey, tokenValue);
 
-  await page.waitForNavigation({ waitUntil: "networkidle2" });
-  console.log("Page reloaded and ready to proceed.");
+  console.log("Token set in localStorage successfully.");
+
+  // 3. Reload trang để áp dụng token
+  await page.reload({ waitUntil: "networkidle2" });
+
+  console.log("Page reloaded with token applied.");
 
   // Duyệt qua từng Order Number
-  for (const order of orders) {
+  for (const [i, order] of orders.entries()) {
     console.log(`Processing order: ${order.SKU}`);
-    handlePopup(page);
     const { SKU, Quantity } = order;
 
     // 2. Search product by SKU
@@ -52,7 +119,8 @@ require("dotenv").config();
 
     // 3. View product details
     await page.waitForSelector(".productItem", { timeout: 10000 }); // Wait for product links to be available
-    const firstProduct = await page.$(".productItem"); // Get the first product link
+        const firstProduct = await page.$(".productItem"); // Get the first product link
+    const productHref = await page.evaluate((el) => el.querySelector("a")?.getAttribute("href"), firstProduct);
     if (firstProduct) {
       await firstProduct.click(); // Click on the first product to go to the product detail page
     } else {
@@ -60,28 +128,15 @@ require("dotenv").config();
     }
 
     // 5. Add to cart
-    await page.waitForSelector(".add-to-cart-btn", { timeout: 10000 }); // Wait for product links to be available
+    await page.waitForSelector(".add-to-cart-btn", { timeout: 10000 });
     await page.click(".add-to-cart-btn");
 
-    // 6. Increment the quantity in the cart sidebar using the "increment" button
-    const incrementButton = await page.$(".qty-btn.increment-btn"); // The button to increase quantity
-    if (incrementButton) {
-      // Click the increment button the required number of times to match the desired quantity
-      const currentQuantityText = await page.$eval(".quantity-input", (el) => el.innerText); // Get current quantity
-      let currentQuantity = parseInt(currentQuantityText.trim());
-      const desiredQuantity = order.Quantity;
+    console.log(`Product ${SKU} added to cart.`);
 
-      // Click the increment button the necessary number of times
-      while (currentQuantity < desiredQuantity) {
-        await incrementButton.click();
-        currentQuantity++; // Increment the current quantity
-        console.log(`Increased quantity to ${currentQuantity}`);
-      }
-    } else {
-      console.log("No increment button found in the cart sidebar");
-    }
+    await page.waitForSelector(".cart-item")
+    // 6. Adjust quantity in cart sidebar
+    await adjustQuantityByHref(page, productHref, Quantity);
 
-    console.log(`Added ${Quantity} of ${SKU} to the cart`);
 
     // Quay lại trang chính
     await page.goto("https://www.jomashop.com", { waitUntil: "networkidle2" });
@@ -93,16 +148,6 @@ require("dotenv").config();
   // Đóng trình duyệt
   await browser.close();
 })();
-
-const handlePopup = async (page) => {
-  try {
-    await page.waitForSelector(".ltkpopup-close-button", { timeout: 5000 });
-    await page.click(".ltkpopup-close-button"); // Nhấn nút đóng popup
-    console.log("Popup đã được đóng.");
-  } catch (error) {
-    console.log("Không có popup xuất hiện, tiếp tục quy trình.");
-  }
-};
 
 //! QUÁ TRÌNH ĐĂNG NHẬP BỊ CHẶN BỞI CAPTCHA
 // await page.click(".rhs-account .rhs-text");
