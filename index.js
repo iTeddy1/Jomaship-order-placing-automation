@@ -76,7 +76,7 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
 
   const browser = await puppeteer
     .launch({
-      headless: true,
+      headless: false,
     })
     .catch((error) => {
       console.error("Error launching browser:", error);
