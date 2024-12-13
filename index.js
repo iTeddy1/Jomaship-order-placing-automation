@@ -5,7 +5,6 @@ const fs = require("fs");
 require("dotenv").config();
 
 // M2_VENIA_BROWSER_PERSISTENCE__signin_token
-// Value: {"value":"\"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w\"","timeStored":1731737384709}
 
 const adjustQuantityByHref = async (page, href, desiredQuantity) => {
   try {
@@ -92,7 +91,7 @@ const adjustQuantityByHref = async (page, href, desiredQuantity) => {
   const tokenKey = "M2_VENIA_BROWSER_PERSISTENCE__signin_token";
   const tokenValue = JSON.stringify({
     value:
-      '"eyJraWQiOiIxIiwiYWxnIjoiSFMyNTYifQ.eyJ1aWQiOjU2Njk5MTEsInV0eXBpZCI6MywiaWF0IjoxNzMxNzM3MzgzLCJleHAiOjE3MzI0Mjg1ODN9.cYtfXfMxJgKQaz80IHc0tcUAuRgXy3oxWcis9qhBJ4w"',
+      '"YourValueHere"',
     timeStored: 1731737384709,
   });
 
